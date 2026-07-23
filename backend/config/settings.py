@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     "corsheaders",
     'rest_framework',
    'apps.members',
-    'apps.accounts',
+    'apps.Masjid_Admin',
 ]
 
 MIDDLEWARE = [
