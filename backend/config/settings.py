@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure--_-zsr%fjfs+eqek2j3_)=r@u41ty_3o+z_d2e52oc^=44n0!d
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-
+AUTH_USER_MODEL = "members.User"
 ALLOWED_HOSTS = []
 
 
@@ -41,7 +41,8 @@ INSTALLED_APPS = [
     "corsheaders",
     'rest_framework',
    'apps.members',
-    'apps.Masjid_Admin',
+'apps.masjid_Admin',
+'apps.accounts',
 ]
 
 MIDDLEWARE = [
