@@ -10,17 +10,18 @@ import MemberProfile from "../pages/auth/MemberProfile";
 import AddMember from "../pages/members/AddMember";
 import SetPassword from "../pages/auth/SetPassword";
 import Varisangyam from "../pages/donations/varisangyam";
-
+import Adminlogin from "../pages/auth/adminlogin";
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
-<Route path="/member-profile" element={<MemberProfile />} />
-<Route path="/add-member" element={<AddMember />} />
-<Route path="/set-password/:id" element={<SetPassword />} />
-<Route path="/varisangyam" element={<Varisangyam />} />
+      <Route path="/member-profile" element={<MemberProfile />} />
+      <Route path="/add-member" element={<AddMember />} />
+      <Route path="/set-password/:id" element={<SetPassword />} />
+      <Route path="/varisangyam" element={<Varisangyam />} />
+      <Route path="/admin-login" element={<Adminlogin />} />
       <Route
         path="/dashboard"
         element={
@@ -44,16 +45,16 @@ function App() {
       />
 
 
-<Route
-  path="/members/:id"
-  element={
-    <ProtectedRoute>
-      <AdminLayout>
-        <MemberDetail />
-      </AdminLayout>
-    </ProtectedRoute>
-  }
-/>
+      <Route
+        path="/members/:id"
+        element={
+          <ProtectedRoute>
+            <AdminLayout>
+              <MemberDetail />
+            </AdminLayout>
+          </ProtectedRoute>
+        }
+      />
 
     </Routes>
   );
