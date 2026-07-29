@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+venv/
+.env
+
+# Django
+db.sqlite3
+*.sqlite3
+
+# Node.js
+node_modules/
+
+# macOS
+.DS_Store
+
+# Build folders
+dist/
+build/
