@@ -10,23 +10,23 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
-  // 🔍 CHECK USER TYPE
-  const checkUser = async (username) => {
-    if (!username) return;
+  // 🔍 CHECK USER TYPE (First Login check on blur)
+  const checkUser = async (identifier) => {
+    if (!identifier || !identifier.trim()) return;
     try {
       const res = await fetch("http://127.0.0.1:8000/api/members/login/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username }),
+        body: JSON.stringify({ identifier: identifier.trim() }),
       });
       const data = await res.json();
-      if (data.first_login) {
-        setMemberId(data.id);
+      if (res.ok && data.first_login) {
+        setMemberId(data.id || data.member_id);
       } else {
         setMemberId(null);
       }
-    } catch {
-      console.log("Check user error");
+    } catch (err) {
+      console.log("Check user error:", err);
     }
   };
 
@@ -36,48 +36,76 @@ export default function Login() {
     setError("");
     setIsLoading(true);
 
+    const identifierValue = (form.username || form.member_id || "").trim();
+
+    if (!identifierValue) {
+      setError("Please enter your Phone, Member ID, or Name");
+      setIsLoading(false);
+      return;
+    }
+
+    let responseData = null;
+
     try {
-      // 🔐 1. ADMIN LOGIN
-      const adminRes = await fetch("http://127.0.0.1:8000/api/login/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const adminData = await adminRes.json();
-
-      if (adminData.access) {
-        localStorage.setItem("token", adminData.access);
-        navigate("/dashboard");
-        setIsLoading(false);
-        return;
-      }
-
-      // 👤 2. MEMBER LOGIN
+      // 👤 1. MEMBER LOGIN FIRST
       const memberRes = await fetch(
         "http://127.0.0.1:8000/api/members/login/",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify({
+            identifier: identifierValue,
+            password: form.password,
+          }),
         }
       );
-      const data = await memberRes.json();
+      responseData = await memberRes.json();
 
-      if (data.first_login) {
-        setMemberId(data.id);
-        setIsLoading(false);
-        return;
+      if (memberRes.ok) {
+        if (responseData.first_login) {
+          setMemberId(responseData.id || responseData.member_id);
+          return;
+        }
+
+        if (responseData.id || responseData.member_id) {
+          const memberData = {
+            ...responseData,
+            id: responseData.id || responseData.member_id,
+          };
+          localStorage.setItem("member", JSON.stringify(memberData));
+          navigate("/member-profile");
+          return;
+        }
       }
 
-      if (data.id) {
-        localStorage.setItem("member", JSON.stringify(data));
-        navigate("/member-profile");
-        setIsLoading(false);
-        return;
+      // 🔐 2. IF MEMBER NOT FOUND, TRY ADMIN LOGIN FALLBACK
+      if (memberRes.status === 404) {
+        try {
+          const adminRes = await fetch("http://127.0.0.1:8000/api/login/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              username: identifierValue,
+              password: form.password,
+            }),
+          });
+
+          if (adminRes.ok) {
+            const adminData = await adminRes.json();
+            if (adminData.access) {
+              localStorage.setItem("token", adminData.access);
+              navigate("/dashboard");
+              return;
+            }
+          }
+        } catch (err) {
+          // Admin endpoint error
+        }
       }
 
-      setError(data.error || "Login failed");
+      setError(responseData?.error || "Login failed. Please check your credentials.");
     } catch (err) {
+      console.error("Login catch error:", err);
       setError("Server error. Please try again.");
     } finally {
       setIsLoading(false);
@@ -90,18 +118,25 @@ export default function Login() {
       setError("Password must be at least 6 characters");
       return;
     }
+    setError("");
     setIsLoading(true);
     try {
-      await fetch(`http://127.0.0.1:8000/api/members/set-password/${memberId}/`, {
+      const res = await fetch(`http://127.0.0.1:8000/api/members/set-password/${memberId}/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: newPassword }),
       });
-      alert("Password created successfully! Please login.");
-      setMemberId(null);
-      setNewPassword("");
-      setForm({ ...form, password: "" });
-    } catch {
+      const data = await res.json();
+      if (res.ok) {
+        alert("Password created successfully! Please login with your new password.");
+        setMemberId(null);
+        setNewPassword("");
+        setForm({ ...form, password: "" });
+      } else {
+        setError(data.error || "Failed to set password");
+      }
+    } catch (err) {
+      console.error("Create password error:", err);
       setError("Failed to set password");
     } finally {
       setIsLoading(false);
@@ -130,7 +165,7 @@ export default function Login() {
           <p className="text-sm text-gray-400 font-light mt-1">
             {memberId
               ? "First time login – create your password"
-              : "Login to your mosque dashboard"
+              : "Login to your mosque dashboard or member profile"
             }
           </p>
         </div>
@@ -149,16 +184,19 @@ export default function Login() {
           {!memberId && (
             <form onSubmit={handleLogin} className="space-y-4">
 
-              {/* Email/Phone Field */}
+              {/* Identifier Field (Phone / Member ID / Name) */}
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1.5">
-                  Email / Phone
+                  Phone / Member ID / Name
                 </label>
                 <input
                   type="text"
-                  placeholder="Enter email or phone number"
+                  placeholder="Enter phone, member ID (e.g. MAS0001), or name"
                   value={form.username}
-                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  onChange={(e) => {
+                    setForm({ ...form, username: e.target.value });
+                    setError("");
+                  }}
                   onBlur={(e) => checkUser(e.target.value)}
                   className="w-full px-4 py-3 bg-gray-50/80 backdrop-blur-sm border border-gray-200 rounded-xl text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all duration-300"
                   required
@@ -171,19 +209,16 @@ export default function Login() {
                   <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Password
                   </label>
-                  <button
-                    type="button"
-                    className="text-xs text-emerald-600 hover:text-emerald-700 font-medium transition-colors"
-                  >
-                    Forgot Password?
-                  </button>
                 </div>
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
                     value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    onChange={(e) => {
+                      setForm({ ...form, password: e.target.value });
+                      setError("");
+                    }}
                     className="w-full px-4 py-3 bg-gray-50/80 backdrop-blur-sm border border-gray-200 rounded-xl text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all duration-300 pr-12"
                     required
                   />
@@ -219,8 +254,8 @@ export default function Login() {
           {memberId && (
             <div className="space-y-4">
               <div className="p-4 bg-emerald-50/50 backdrop-blur-sm rounded-xl border border-emerald-100/50 text-center">
-                <p className="text-xs text-gray-500">
-                  🔐 Set your password to complete registration
+                <p className="text-xs text-emerald-800 font-medium">
+                  🔐 First time logging in! Set your new password below.
                 </p>
               </div>
 
@@ -232,25 +267,38 @@ export default function Login() {
                   type="password"
                   placeholder="Enter new password (min 6 chars)"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setError("");
+                  }}
                   className="w-full px-4 py-3 bg-gray-50/80 backdrop-blur-sm border border-gray-200 rounded-xl text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all duration-300"
                 />
               </div>
 
-              <button
-                onClick={createPassword}
-                disabled={isLoading}
-                className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-semibold rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Creating...</span>
-                  </div>
-                ) : (
-                  "Create Password"
-                )}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={createPassword}
+                  disabled={isLoading}
+                  className="flex-1 py-3.5 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-semibold rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Creating...</span>
+                    </div>
+                  ) : (
+                    "Create Password"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMemberId(null)}
+                  className="px-4 py-3.5 bg-gray-100 text-gray-600 font-medium rounded-xl hover:bg-gray-200 transition-colors"
+                >
+                  Back
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -261,28 +309,25 @@ export default function Login() {
             <div className="w-full border-t border-gray-200/60"></div>
           </div>
           <div className="relative flex justify-center text-xs">
-            <span className="px-3 bg-transparent text-gray-400 font-medium tracking-wider">
+            <span className="px-3 bg-slate-50 text-gray-400 font-medium tracking-wider rounded-full">
               OR CONTINUE WITH
             </span>
           </div>
         </div>
 
-        {/* Guest & Owner Options */}
+        {/* Admin Login Option */}
         <div className="space-y-3">
-
-
           <button
+            type="button"
             onClick={() => navigate("/admin-login")}
             className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-xl hover:border-emerald-300 hover:bg-white/80 transition-all duration-300 group"
           >
             <span className="text-gray-400 group-hover:text-emerald-500 transition-colors">🏛️</span>
-            <span className="text-sm text-gray-600 group-hover:text-gray-800 transition-colors">
+            <span className="text-sm text-gray-600 group-hover:text-gray-800 transition-colors font-medium">
               Admin Login
             </span>
           </button>
         </div>
-
-        {/* Register Link */}
 
       </div>
     </div>

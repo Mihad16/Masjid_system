@@ -87,7 +87,7 @@ export default function MemberDetail() {
               },
               {
                 label: "Member ID",
-                value: `#${String(id).padStart(4, "0")}`,
+                value: member?.member_id || member?.id || id,
                 icon: <><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3h-4a2 2 0 00-2 2v2h8V5a2 2 0 00-2-2z"/></>,
                 iconBg: "#f0fdf4", iconStroke: "#15803d",
               },

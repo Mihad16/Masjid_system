@@ -280,7 +280,7 @@ export default function Members() {
                       className="text-base font-semibold text-gray-800 hover:text-emerald-600 transition-colors no-underline flex items-center gap-2"
                     >
                       {m.name}
-                      <span className="text-xs text-gray-400 font-normal">#{String(m.id).padStart(4, "0")}</span>
+                      <span className="text-xs text-emerald-700 font-mono bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">{m.member_id || m.id}</span>
                     </Link>
                     <div className="flex flex-wrap gap-3 mt-1">
                       {m.phone && (

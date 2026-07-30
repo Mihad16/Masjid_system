@@ -24,9 +24,10 @@ export default function MemberProfile() {
     }
 
     const parsed = JSON.parse(data);
+    const memberId = parsed.id || parsed.member_id;
 
     // Fetch member profile
-    fetch(`http://127.0.0.1:8000/api/members/profile/${parsed.id}/`)
+    fetch(`http://127.0.0.1:8000/api/members/profile/${memberId}/`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load profile");
         return res.json();
@@ -42,17 +43,22 @@ export default function MemberProfile() {
       });
 
     // Fetch member contributions
-    fetchContributions(parsed.id);
+    fetchContributions(memberId);
   }, []);
 
   const fetchContributions = async (memberId) => {
     setContributionsLoading(true);
     try {
       const response = await fetch(`http://127.0.0.1:8000/api/varisangyam/member/${memberId}/`);
+      if (!response.ok) {
+        setContributions([]);
+        return;
+      }
       const data = await response.json();
-      setContributions(data);
+      setContributions(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error("Error fetching contributions:", error);
+      console.log("Error or missing endpoint for contributions:", error);
+      setContributions([]);
     } finally {
       setContributionsLoading(false);
     }
@@ -157,7 +163,7 @@ export default function MemberProfile() {
               <h1 className="text-2xl md:text-3xl font-bold text-gray-800">{member.name}</h1>
               <div className="flex flex-wrap gap-3 mt-2 justify-center md:justify-start">
                 <span className="text-sm text-gray-500">
-                  Member ID: <span className="font-mono font-semibold text-emerald-600">#{String(member.id).padStart(4, "0")}</span>
+                  Member ID: <span className="font-mono font-semibold text-emerald-600">{member.member_id || member.id}</span>
                 </span>
                 <span className="text-gray-300">|</span>
                 <span className="inline-flex items-center gap-1 text-sm text-emerald-600">
